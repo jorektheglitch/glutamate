@@ -1,0 +1,6 @@
+adaptix
+aiofiles
+aiohttp
+aiohttp-socks
+polars
+tqdm
