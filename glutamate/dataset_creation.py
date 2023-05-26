@@ -1,7 +1,7 @@
 from collections import Counter
 from itertools import chain
 from pathlib import Path
-from typing import Iterable, Literal, Mapping, Sequence
+from typing import Container, Iterable, Literal, Mapping, Sequence
 
 import polars as pl
 
@@ -25,12 +25,16 @@ def write_captions(posts: Iterable[Post],
                    tags_ordering: Sequence[Literal['character', 'copyright', 'lore', 'species', 'artist', 'rating', 'general', 'invalid', 'meta']] = DEFAULT_CATEGORIES_ORDER,
                    tags_to_head: Sequence[str] = (),
                    tags_to_tail: Sequence[str] = (),
+                   exclude_tags: Container[str] = (),
                    ) -> None:
     exclusive_order = {*tags_to_head, *tags_to_tail}
     for post in posts:
         caption_filename = target_directory / f"{(post.id if naming == 'id' else post.md5)}.txt"
         with open(caption_filename, "w") as caption_file:
-            tags = {tag for tag in post.tags if tag not in exclusive_order}
+            tags = {
+                tag for tag in post.tags
+                if not (tag in exclusive_order or tag in exclude_tags)
+            }
             ordered_tags = db.reorder_tags(tags, tags_ordering)
             if remove_underscores:
                 ordered_tags = [tag.replace('_', ' ') for tag in ordered_tags]
