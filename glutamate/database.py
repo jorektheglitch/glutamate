@@ -125,7 +125,7 @@ class E621CSVDB(E621DB):
         ordered.extend(remains)
         return ordered
 
-    def select_posts(self, query: Query, exclude_unknown_tags: bool = False) -> Sequence[Post]:
+    def select_posts(self, query: Query, *, exclude_unknown_tags: bool = False) -> Sequence[Post]:
         df = self.posts_dataframe
         df = df.filter(pl.col('is_deleted') == 'f')
         if exclude_unknown_tags:
@@ -162,8 +162,20 @@ class E621CSVDB(E621DB):
         if query.min_date:
             date_filter = (pl.col('created_at') >= str(query.min_date))
             filters.append(date_filter)
+        if query.skip_posts:
+            ids = {e for e in query.skip_posts if isinstance(e, int)}
+            md5s = {e for e in query.skip_posts if isinstance(e, int)}
+            if ids:
+                skip_posts_id_filter = (~pl.col('id').is_in(ids))
+                filters.append(skip_posts_id_filter)
+            if md5s:
+                skip_posts_md5_filter = (~pl.col('md5').is_in(md5s))
+                filters.append(skip_posts_md5_filter)
         query_filter = _combine_pl_filter_exprs(*filters, method='all')
-        selected_posts_iter = df.filter(query_filter).collect().iter_rows(named=True)
+        selected_posts_df = df.filter(query_filter)
+        if query.top_n:
+            selected_posts_df = selected_posts_df.top_k(query.top_n, by=pl.col('score'))
+        selected_posts_iter = selected_posts_df.collect().iter_rows(named=True)
         selected_posts = list(map(load_post, selected_posts_iter))
         return selected_posts
 
