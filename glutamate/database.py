@@ -29,7 +29,7 @@ class E621DB(ABC):
     def reorder_tags(self, 
                      tags: Iterable[str],
                      ordering: Sequence[Literal['character', 'copyright', 'lore', 'species', 'artist', 'rating', 'general', 'invalid', 'meta']] = DEFAULT_CATEGORIES_ORDER,  # noqa
-                     ) -> Sequence[str]:
+                     ) -> list[str]:
         pass
 
     @abstractmethod

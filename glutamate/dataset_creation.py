@@ -7,7 +7,7 @@ import polars as pl
 
 from glutamate.consts import DEFAULT_CATEGORIES_ORDER
 from glutamate.database import E621DB
-from glutamate.datamodel import Post
+from glutamate.datamodel import Post, Rating
 
 
 def get_tag_stats(posts: Iterable[Post]) -> Mapping[str, int]:
@@ -25,6 +25,7 @@ def write_captions(posts: Iterable[Post],
                    tags_ordering: Sequence[Literal['character', 'copyright', 'lore', 'species', 'artist', 'rating', 'general', 'invalid', 'meta']] = DEFAULT_CATEGORIES_ORDER,
                    tags_to_head: Sequence[str] = (),
                    tags_to_tail: Sequence[str] = (),
+                   add_rating_tags: Container[Rating] = (),
                    exclude_tags: Container[str] = (),
                    ) -> None:
     exclusive_order = {*tags_to_head, *tags_to_tail}
@@ -40,6 +41,8 @@ def write_captions(posts: Iterable[Post],
                 ordered_tags = [tag.replace('_', ' ') for tag in ordered_tags]
             if remove_parentheses:
                 ordered_tags = [tag.replace('(', '').replace(')', '') for tag in ordered_tags]
+            if post.rating in add_rating_tags:
+                ordered_tags.append(post.rating.name.lower())
             caption_file.write(", ".join(chain(tags_to_head, ordered_tags, tags_to_tail)))
 
 
