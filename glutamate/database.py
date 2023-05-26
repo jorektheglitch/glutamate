@@ -37,7 +37,7 @@ class E621DB(ABC):
         pass
 
 
-@dataclass
+@dataclass(frozen=True)
 class Query:
     include_tags: Iterable[str] = ()
     exclude_tags: Iterable[str] = ()
@@ -49,13 +49,15 @@ class Query:
     min_area: int = 0
     top_n: int | None = None
     include_tags_rate: Rating | Iterable[Rating] = ANY_RATING
+    skip_posts: Iterable[int | str] = ()
 
     def copy_with(self,
                   *,
                   include_tags: Iterable[str] | ellipsis = ..., exclude_tags: Iterable[str] | ellipsis = ...,
                   extensions: EXT | Iterable[EXT] | ellipsis = ..., ratings: Rating | Iterable[Rating] | ellipsis = ..., 
                   min_score: int | ellipsis = ..., min_favs: int | ellipsis = ..., min_date: date | None | ellipsis = ..., min_area: int | ellipsis = ...,
-                  top_n: int | None | ellipsis =..., include_tags_rate: Rating | Iterable[Rating] | ellipsis = ...
+                  top_n: int | None | ellipsis =..., include_tags_rate: Rating | Iterable[Rating] | ellipsis = ...,
+                  skip_posts: Iterable[int | str] | ellipsis = ...,
                   ) -> Query:
         include_tags = tuple(self.include_tags) if isinstance(include_tags, ellipsis) else include_tags
         exclude_tags = tuple(self.include_tags) if isinstance(exclude_tags, ellipsis) else exclude_tags
@@ -67,7 +69,13 @@ class Query:
         min_area = self.min_area if isinstance(min_area, ellipsis) else min_area
         top_n = self.top_n if isinstance(top_n, ellipsis) else top_n
         include_tags_rate = self.include_tags_rate if isinstance(include_tags_rate, ellipsis) else include_tags_rate
-        return Query(include_tags, exclude_tags, extensions, ratings, min_score, min_favs, min_date, min_area, top_n, include_tags_rate)
+        skip_posts = self.skip_posts if isinstance(skip_posts, ellipsis) else skip_posts
+        return Query(
+            include_tags, exclude_tags,
+            extensions, ratings, 
+            min_score, min_favs, min_date, min_area,
+            top_n, include_tags_rate, skip_posts
+        )
 
     def normalized_extensions(self) -> Iterable[EXT]:
         if isinstance(self.extensions, Iterable):
