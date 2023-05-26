@@ -21,6 +21,7 @@ def write_captions(posts: Iterable[Post],
                    *,
                    naming: Literal['id', 'md5'],
                    remove_underscores: bool = False,
+                   remove_parentheses: bool = False,
                    tags_ordering: Sequence[Literal['character', 'copyright', 'lore', 'species', 'artist', 'rating', 'general', 'invalid', 'meta']] = DEFAULT_CATEGORIES_ORDER,
                    tags_to_head: Sequence[str] = (),
                    tags_to_tail: Sequence[str] = (),
@@ -33,6 +34,8 @@ def write_captions(posts: Iterable[Post],
             ordered_tags = db.reorder_tags(tags, tags_ordering)
             if remove_underscores:
                 ordered_tags = [tag.replace('_', ' ') for tag in ordered_tags]
+            if remove_parentheses:
+                ordered_tags = [tag.replace('(', '').replace(')', '') for tag in ordered_tags]
             caption_file.write(", ".join(chain(tags_to_head, ordered_tags, tags_to_tail)))
 
 
