@@ -8,7 +8,7 @@ Easy to use Python library for querying and downloading posts from e621.net.
 from pathlib import Path
 
 from glutamate.database import E621CSVDB, Query
-from glutamate.dataset_creation import write_captions, write_stats
+from glutamate.dataset import write_captions, write_stats
 from glutamate.download import download_posts
 
 
@@ -25,10 +25,14 @@ target_directory.mkdir(parents=True, exist_ok=True)
 
 results = download_posts(posts, target_directory, naming='id')
 failed = [result for result in results if not result.ok]
+if failed:
+    print(f"Failed to download {len(failed)} posts")
 
-write_captions(posts, target_directory, db, naming='id', remove_underscores=True, tags_to_head=('kisha', 'kisha (character)'))
+captions = posts.get_captions(db, naming='id', remove_underscores=True, tags_to_head=('kisha', 'kisha (character)'))
+write_captions(captions, target_directory)
 
-stats_csv = target_directory / 'tags.csv'
-write_stats(posts, stats_csv)
+counts_csv = target_directory / 'tags.csv'
+counts = posts.get_tags_counts()
+write_stats(counts, counts_csv)
 
 ```
