@@ -14,9 +14,10 @@ from typing import Iterable, Literal, Sequence
 import polars as pl
 
 from glutamate.consts import CATEGORY_TO_NUMBERS, DEFAULT_CATEGORIES_ORDER
-from glutamate.datamodel import EXT, Post, Rating
+from glutamate.datamodel import EXT, Rating
 from glutamate.datamodel import ANY_EXT, ANY_RATING
 from glutamate.datamodel import load_post
+from glutamate.dataset import Dataset, Posts
 
 
 class E621DB(ABC):
@@ -33,7 +34,7 @@ class E621DB(ABC):
         pass
 
     @abstractmethod
-    def select_posts(self, query: Query) -> Sequence[Post]:
+    def select_posts(self, query: Query) -> Dataset:
         pass
 
 
@@ -125,7 +126,7 @@ class E621CSVDB(E621DB):
         ordered.extend(remains)
         return ordered
 
-    def select_posts(self, query: Query, *, exclude_unknown_tags: bool = False) -> Sequence[Post]:
+    def select_posts(self, query: Query, *, exclude_unknown_tags: bool = False) -> Posts:
         df = self.posts_dataframe
         df = df.filter(pl.col('is_deleted') == 'f')
         if exclude_unknown_tags:
@@ -176,7 +177,7 @@ class E621CSVDB(E621DB):
         if query.top_n:
             selected_posts_df = selected_posts_df.top_k(query.top_n, by=pl.col('score'))
         selected_posts_iter = selected_posts_df.collect().iter_rows(named=True)
-        selected_posts = list(map(load_post, selected_posts_iter))
+        selected_posts = Posts(map(load_post, selected_posts_iter))
         return selected_posts
 
     def _tags_filter(self, tags: Iterable[str], *, exclude: bool = False) -> pl.Expr:
