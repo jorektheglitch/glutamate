@@ -211,6 +211,12 @@ class E621CSVDB(E621DataFrameDB):
         tags_dataframe = pl.scan_csv(tags_csv)
         super().__init__(posts_dataframe, tags_dataframe)
 
+    def write_posts_parquet(self, parquet_path: Path | str, *, allow_overwrite: bool = False) -> None:
+        write_parquet(self.posts_dataframe, parquet_path, allow_overwrite=allow_overwrite)
+
+    def write_tags_parquet(self, parquet_path: Path | str, *, allow_overwrite: bool = False) -> None:
+        write_parquet(self.tags_dataframe, parquet_path, allow_overwrite=allow_overwrite)
+
 
 class E621ParquetDB(E621DataFrameDB):
 
@@ -218,6 +224,19 @@ class E621ParquetDB(E621DataFrameDB):
         posts_dataframe = pl.scan_parquet(posts_parquet)
         tags_dataframe = pl.scan_parquet(tags_parquet)
         super().__init__(posts_dataframe, tags_dataframe)
+
+
+def write_parquet(df: pl.DataFrame | pl.LazyFrame,
+                   parquet_path: Path | str,
+                   *,
+                   allow_overwrite: bool = False
+                   ) -> None:
+    parquet_path = Path(parquet_path)
+    if parquet_path.exists() and not allow_overwrite:
+        raise FileExistsError(f"File '{parquet_path}' already exists")
+    if isinstance(df, pl.LazyFrame):
+        df = df.collect()
+    df.write_parquet(parquet_path)
 
 
 def _combine_pl_filter_exprs(*exprs: pl.Expr, method: Literal['any', 'all'] = 'all') -> pl.Expr:
