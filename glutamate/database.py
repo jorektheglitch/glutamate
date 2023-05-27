@@ -212,6 +212,14 @@ class E621CSVDB(E621DataFrameDB):
         super().__init__(posts_dataframe, tags_dataframe)
 
 
+class E621ParquetDB(E621DataFrameDB):
+
+    def __init__(self, posts_parquet: str | Path, tags_parquet: str | Path) -> None:
+        posts_dataframe = pl.scan_parquet(posts_parquet)
+        tags_dataframe = pl.scan_parquet(tags_parquet)
+        super().__init__(posts_dataframe, tags_dataframe)
+
+
 def _combine_pl_filter_exprs(*exprs: pl.Expr, method: Literal['any', 'all'] = 'all') -> pl.Expr:
     reducer = (ior if method=='any' else iand)
     return reduce(reducer, exprs)
