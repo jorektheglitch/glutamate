@@ -13,7 +13,7 @@ from typing import Iterable, Literal, Sequence
 
 import polars as pl
 
-from glutamate.consts import CATEGORY_TO_NUMBERS, DEFAULT_CATEGORIES_ORDER
+from glutamate.consts import CATEGORY_TO_NUMBERS, DEFAULT_CATEGORIES_ORDER, POST_COLUMNS, TAG_COLUMNS
 from glutamate.datamodel import EXT, Rating
 from glutamate.datamodel import ANY_EXT, ANY_RATING
 from glutamate.datamodel import load_post
@@ -89,18 +89,28 @@ class Query:
         return (self.ratings, )
 
 
-class E621CSVDB(E621DB):
+class E621DataFrameDB(E621DB):
 
-    def __init__(self, posts_csv: str | Path, tags_csv: str | Path) -> None:
+    def __init__(self, posts_df: pl.DataFrame | pl.LazyFrame, tags_df: pl.DataFrame | pl.LazyFrame) -> None:
         super().__init__()
-        self.posts_dataframe = pl.scan_csv(posts_csv)
-        self.tags_dataframe = pl.scan_csv(tags_csv)
-
+        missing_columns = POST_COLUMNS.difference(posts_df.columns)
+        if missing_columns:
+            columns_raw = ', '.join(map(repr, sorted(missing_columns)))
+            raise ValueError(f'Posts dataset missing few columns: {columns_raw}')
+        missing_columns = TAG_COLUMNS.difference(tags_df.columns)
+        if missing_columns:
+            columns_raw = ', '.join(map(repr, sorted(missing_columns)))
+            raise ValueError(f'Tags dataset missing few columns: {columns_raw}')
+        self.posts_dataframe = posts_df
+        self.tags_dataframe = tags_df
+    
     def filter_known_tags(self, tags: Iterable[str]) -> set[str]:
         df = self.tags_dataframe
         filters = [pl.col('name') == tag for tag in tags]
         filter = _combine_pl_filter_exprs(*filters, method='any')
-        filtered_tags_df = df.filter(filter).select('name').collect()
+        filtered_tags_df = df.filter(filter).select('name')
+        if isinstance(filtered_tags_df, pl.LazyFrame):
+            filtered_tags_df = filtered_tags_df.collect()
         filtered_tags = set(filtered_tags_df['name'].to_list())
         return filtered_tags
 
@@ -118,7 +128,9 @@ class E621CSVDB(E621DB):
         filter = _combine_pl_filter_exprs(*filters, method='any')
         tags_df = self.tags_dataframe.filter(filter)
         for category_num in num_ordering:
-            category_tags_df = tags_df.filter(pl.col('category') == category_num).select('name').collect()
+            category_tags_df = tags_df.filter(pl.col('category') == category_num).select('name')
+            if isinstance(category_tags_df, pl.LazyFrame):
+                category_tags_df = category_tags_df.collect()
             category_tags = category_tags_df['name'].to_list()
             category_tags.sort()
             ordered.extend(category_tags)
@@ -176,7 +188,9 @@ class E621CSVDB(E621DB):
         selected_posts_df = df.filter(query_filter)
         if query.top_n:
             selected_posts_df = selected_posts_df.top_k(query.top_n, by=pl.col('score'))
-        selected_posts_iter = selected_posts_df.collect().iter_rows(named=True)
+        if isinstance(selected_posts_df, pl.LazyFrame):
+            selected_posts_df = selected_posts_df.collect()
+        selected_posts_iter = selected_posts_df.iter_rows(named=True)
         selected_posts = Posts(map(load_post, selected_posts_iter))
         return selected_posts
 
@@ -188,6 +202,14 @@ class E621CSVDB(E621DB):
         if exclude:
             tags_filter = ~tags_filter
         return tags_filter
+
+
+class E621CSVDB(E621DataFrameDB):
+
+    def __init__(self, posts_csv: str | Path, tags_csv: str | Path) -> None:
+        posts_dataframe = pl.scan_csv(posts_csv)
+        tags_dataframe = pl.scan_csv(tags_csv)
+        super().__init__(posts_dataframe, tags_dataframe)
 
 
 def _combine_pl_filter_exprs(*exprs: pl.Expr, method: Literal['any', 'all'] = 'all') -> pl.Expr:
