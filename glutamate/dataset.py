@@ -1,14 +1,18 @@
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from collections import Counter
 from itertools import chain
 from pathlib import Path
 from typing import Container, Iterable, Iterator, Literal, Mapping, Sequence, overload
+from typing import TYPE_CHECKING
 
 import polars as pl
 
 from glutamate.consts import DEFAULT_CATEGORIES_ORDER
-from glutamate.database import E621DB
 from glutamate.datamodel import Post, Rating
+if TYPE_CHECKING:
+    from glutamate.database import E621DB
 
 
 class Dataset(ABC, Sequence[Post]):
