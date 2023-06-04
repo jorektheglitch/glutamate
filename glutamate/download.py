@@ -52,7 +52,7 @@ class FilesDownloader:
     def __init__(self,
                  *,
                  workers_count: int = 16,
-                 chunk_size: int = 1024**2,
+                 chunk_size: int | None = None,
                  proxy_url: str | None = None,
                  enable_tqdm: bool = False,
                  logger: Logger = logger,
@@ -148,13 +148,18 @@ class FilesDownloader:
         async with client.get(task.url) as response:
             response.raise_for_status()
             content_length = response.content_length or 0
+            downloaded = 0
             progress.reset(content_length)
             async with aiofiles.open(task.target_file, "wb") as file:
-                async for data in response.content.iter_any():
-                    content_length += len(data)
-                    await file.write(data)
-                    progress.update(len(data))
-        return content_length
+                if self._chunk_size:
+                    chunks = response.content.iter_chunked(self._chunk_size)
+                else:
+                    chunks = response.content.iter_any()
+                async for chunk in chunks:
+                    downloaded += len(chunk)
+                    await file.write(chunk)
+                    progress.update(len(chunk))
+        return downloaded
 
 
 def download_posts(posts: Iterable[Post], 
