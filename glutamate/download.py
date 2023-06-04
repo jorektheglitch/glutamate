@@ -37,7 +37,7 @@ _Task = TypeVar("_Task", bound=DownloadTask)
 
 @dataclass
 class FinishedDownload(Generic[_Task]):
-    task: DownloadTask[_Task]
+    task: _Task
     exc: Exception | None
 
     @property
