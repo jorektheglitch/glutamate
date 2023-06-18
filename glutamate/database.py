@@ -232,6 +232,88 @@ class E621ParquetDB(E621DataFrameDB):
         super().__init__(posts_dataframe, tags_dataframe)
 
 
+def autoinit_from_directory(data_export_directory: str | Path, *, specific_date: date | None = None, strict_coercion: bool = True) -> E621DataFrameDB:
+    data_export_directory = Path(data_export_directory)
+    data_files = _find_dump_files(data_export_directory, specific_date=specific_date)
+    ordered_groups = sorted(data_files.items(), key=lambda e: e[0], reverse=True)
+    tags_df: pl.LazyFrame | None = None
+    posts_df: pl.LazyFrame | None = None
+    for files_date, files_for_date in ordered_groups:
+        tags_files_group = files_for_date.get("tags", {})
+        posts_files_group = files_for_date.get("posts", {})
+        if strict_coercion and not (tags_files_group and posts_files_group):
+            missed = " and ".join(
+                kind for kind, values in {"tags": tags_files_group, "posts": posts_files_group}.items() if not values
+            )
+            log.info("Skip date %s, can not find any %s file", files_date, missed)
+            continue
+        try:
+            tags_df = _try_scan_files(tags_files_group.values())
+        except ValueError:
+            pass
+        try:
+            posts_df = _try_scan_files(tags_files_group.values())
+        except ValueError:
+            pass
+        if tags_df and posts_df:
+            break
+    else:
+        raise FileNotFoundError("Can't find all needed files (tags and posts)")
+    e621db = E621DataFrameDB(posts_df, tags_df)
+    return e621db
+
+
+def _find_dump_files(data_export_directory: Path,
+                     *,
+                     specific_date: date | None = None
+                     ) -> dict[date, dict[Literal['posts', 'tags'], dict[str, Path]]]:
+    numbers = "".join(map(str, range(10))).join("[]")
+    year = numbers * 4
+    month = numbers * 2
+    day = numbers * 2
+    date_tag = f"{year}-{month}-{day}"
+    date_pattern = re.compile(r"(\d{4}-\d{2}-\d{2})")
+    tags_files = data_export_directory.glob(f"tags-{date_tag}.*")
+    posts_files = data_export_directory.glob(f"posts-{date_tag}.*")
+    data_files: dict[date, dict[Literal["posts", "tags"], dict[str, Path]]] = {}
+    for path in chain(tags_files, posts_files):
+        date_suffix = date_pattern.match(path.name)
+        if date_suffix is None:
+            raise RuntimeError("Unexpected condition: date_suffix is None")
+        file_date = date.fromisoformat(date_suffix.group())
+        if specific_date and file_date != specific_date:
+            continue
+        files_for_date = data_files.setdefault(file_date, {})
+        file_kind: Literal["posts", "tags"] = "posts" if path.name.startswith("posts") else "tags"
+        files_group = files_for_date.setdefault(file_kind, {})
+        # NOTE: possible miss of duplicated files
+        files_group[path.suffix] = path
+    return data_files
+
+
+def _try_scan_files(paths: Iterable[Path]) -> pl.LazyFrame:
+    df = None
+    for path in paths:
+        try:
+            df = _scan_data(path)
+        except Exception:
+            continue
+        break
+    else:
+        raise ValueError("Can't load any of given files")
+    return df
+
+
+def _scan_data(file_path: Path) -> pl.LazyFrame:
+    match file_path.suffix:
+        case ".csv":
+            return pl.scan_csv(file_path)
+        case ".parquet":
+            return pl.scan_csv(file_path)
+        case other:
+            raise ValueError(f"Unsupported file extension '{other}' (file '{file_path}')")
+
+
 def write_parquet(df: pl.DataFrame | pl.LazyFrame,
                    parquet_path: Path | str,
                    *,

@@ -7,15 +7,21 @@ Easy to use Python library for querying and downloading posts from e621.net.
 ```python
 from pathlib import Path
 
-from glutamate.database import E621CSVDB, Query
+from glutamate.database import E621DB, E621CSVDB, Query, autoinit_from_directory
 from glutamate.dataset import write_captions, write_stats
 from glutamate.download import download_posts
 
 
+# Init with qualified file paths
 e621_data_directory = Path('./e621-data/')
 posts_csv = e621_data_directory / 'posts-2023-04-07.csv'
 tags_csv = e621_data_directory / 'tags-2023-04-04.csv'
-db = E621CSVDB(posts_csv, tags_csv)
+db: E621DB = E621CSVDB(posts_csv, tags_csv)
+
+# or simple automatic init with directory contains CSVs (shold be named like posts-2023-01-30.csv)
+e621_data_directory = Path('./e621-data/')
+db = autoinit_from_directory(e621_data_directory)
+
 
 query = Query(("kisha", "solo"))
 posts = db.select_posts(query)
