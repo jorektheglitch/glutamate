@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from datetime import date
 from functools import reduce
 from itertools import chain
+from logging import getLogger
 from operator import iand, ior
 from pathlib import Path
 
@@ -18,6 +19,9 @@ from glutamate.datamodel import EXT, Rating
 from glutamate.datamodel import ANY_EXT, ANY_RATING
 from glutamate.datamodel import load_post
 from glutamate.dataset import Dataset, Posts
+
+
+log = getLogger(__name__)
 
 
 class E621DB(ABC):
@@ -92,6 +96,7 @@ class Query:
 class E621DataFrameDB(E621DB):
 
     def __init__(self, posts_df: pl.DataFrame | pl.LazyFrame, tags_df: pl.DataFrame | pl.LazyFrame) -> None:
+        log.info("Initalize E621DB from DataFrames", self.__class__.__name__)
         super().__init__()
         missing_columns = POST_COLUMNS.difference(posts_df.columns)
         if missing_columns:
@@ -139,6 +144,7 @@ class E621DataFrameDB(E621DB):
         return ordered
 
     def select_posts(self, query: Query, *, exclude_unknown_tags: bool = False) -> Posts:
+        log.info("Filtering posts by query: %s", query)
         df = self.posts_dataframe
         df = df.filter(pl.col('is_deleted') == 'f')
         if exclude_unknown_tags:
