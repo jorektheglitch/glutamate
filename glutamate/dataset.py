@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from itertools import chain
 from pathlib import Path
-from typing import Container, Literal, Mapping, Sequence
+from typing import Container, Iterable, Literal, Mapping, Sequence
 
 import polars as pl
 
@@ -43,14 +43,23 @@ def get_captions(posts: E621Posts,
             if not (tag in exclusive_order or tag in exclude_tags)
         }
         ordered_tags = tags.reorder_tags(post_tags, ordering=tags_ordering)
-        if remove_underscores:
-            ordered_tags = [tag.replace('_', ' ') for tag in ordered_tags]
-        if remove_parentheses:
-            ordered_tags = [tag.replace('(', '').replace(')', '') for tag in ordered_tags]
+        ordered_tags = format_tags(ordered_tags, remove_underscores, remove_parentheses)
         if post.rating in add_rating_tags:
             ordered_tags.append(post.rating.name.lower())
         captions[key] = ", ".join(chain(tags_to_head, ordered_tags, tags_to_tail))
     return captions
+
+
+def format_tags(tags: Iterable[str],
+                remove_underscores: bool = False,
+                remove_parentheses: bool = False,
+                ) -> list[str]:
+    if remove_underscores:
+        tags = (tag.replace('_', ' ') for tag in tags)
+    if remove_parentheses:
+        tags = (tag.replace('(', '').replace(')', '') for tag in tags)
+    return list(tags)
+
 
 def write_captions(captions: Mapping[str, str],
                    target_directory: Path, 
