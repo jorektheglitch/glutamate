@@ -393,7 +393,7 @@ def _find_dump_files(data_export_directory: Path,
     month = numbers * 2
     day = numbers * 2
     date_tag = f"{year}-{month}-{day}"
-    date_pattern = re.compile(r"(\d{4}-\d{2}-\d{2})")
+    date_pattern = re.compile(r".*(\d{4}\-\d{2}\-\d{2})\..*")
     tags_files = data_export_directory.glob(f"tags-{date_tag}.*")
     posts_files = data_export_directory.glob(f"posts-{date_tag}.*")
     data_files: dict[date, dict[Literal["posts", "tags"], dict[str, Path]]] = {}
@@ -401,7 +401,7 @@ def _find_dump_files(data_export_directory: Path,
         date_suffix = date_pattern.match(path.name)
         if date_suffix is None:
             raise RuntimeError("Unexpected condition: date_suffix is None")
-        file_date = date.fromisoformat(date_suffix.group())
+        file_date = date.fromisoformat(date_suffix.groups()[0])
         if specific_date and file_date != specific_date:
             continue
         files_for_date = data_files.setdefault(file_date, {})
