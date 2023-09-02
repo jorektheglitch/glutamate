@@ -372,7 +372,7 @@ def autoinit_from_directory(data_export_directory: str | Path, *, specific_date:
         except ValueError:
             pass
         try:
-            posts_df = _try_scan_files(tags_files_group.values())
+            posts_df = _try_scan_files(posts_files_group.values())
             posts = E621PostsDF(posts_df)
         except ValueError:
             pass
