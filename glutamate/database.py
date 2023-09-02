@@ -10,7 +10,7 @@ from logging import getLogger
 from operator import iand, ior
 from pathlib import Path
 
-from typing import Container, Generic, Iterable, Iterator, Literal, Mapping, Sequence, TypeVar, overload
+from typing import Generic, Iterable, Iterator, Literal, Mapping, Sequence, TypeVar, overload
 
 import polars as pl
 from pyparsing import MutableSequence
@@ -51,25 +51,25 @@ class E621(ABC):
 
 @dataclass(frozen=True)
 class Query:
-    include_tags: Iterable[str] = ()
-    exclude_tags: Iterable[str] = ()
-    extensions: EXT | Iterable[EXT] = ANY_EXT
-    ratings: Rating | Iterable[Rating] = ANY_RATING
+    include_tags: Sequence[str] = ()
+    exclude_tags: Sequence[str] = ()
+    extensions: EXT | Sequence[EXT] = ANY_EXT
+    ratings: Rating | Sequence[Rating] = ANY_RATING
     min_score: int = 0
     min_favs: int = 0
     min_date: date | None = None
     min_area: int = 0
     top_n: int | None = None
-    include_tags_rate: Rating | Iterable[Rating] = ANY_RATING
-    skip_posts: Iterable[int | str] = ()
+    include_tags_rate: Rating | Sequence[Rating] = ANY_RATING
+    skip_posts: Sequence[int | str] = ()
 
     def copy_with(self,
                   *,
-                  include_tags: Iterable[str] | ellipsis = ..., exclude_tags: Iterable[str] | ellipsis = ...,
-                  extensions: EXT | Iterable[EXT] | ellipsis = ..., ratings: Rating | Iterable[Rating] | ellipsis = ..., 
+                  include_tags: Sequence[str] | ellipsis = ..., exclude_tags: Sequence[str] | ellipsis = ...,
+                  extensions: EXT | Sequence[EXT] | ellipsis = ..., ratings: Rating | Sequence[Rating] | ellipsis = ..., 
                   min_score: int | ellipsis = ..., min_favs: int | ellipsis = ..., min_date: date | None | ellipsis = ..., min_area: int | ellipsis = ...,
-                  top_n: int | None | ellipsis =..., include_tags_rate: Rating | Iterable[Rating] | ellipsis = ...,
-                  skip_posts: Iterable[int | str] | ellipsis = ...,
+                  top_n: int | None | ellipsis =..., include_tags_rate: Rating | Sequence[Rating] | ellipsis = ...,
+                  skip_posts: Sequence[int | str] | ellipsis = ...,
                   ) -> Query:
         include_tags = tuple(self.include_tags) if isinstance(include_tags, ellipsis) else include_tags
         exclude_tags = tuple(self.include_tags) if isinstance(exclude_tags, ellipsis) else exclude_tags
@@ -89,13 +89,13 @@ class Query:
             top_n, include_tags_rate, skip_posts
         )
 
-    def normalized_extensions(self) -> Iterable[EXT]:
-        if isinstance(self.extensions, Iterable):
+    def normalized_extensions(self) -> Sequence[EXT]:
+        if isinstance(self.extensions, Sequence):
             return self.extensions
         return (self.extensions, )
 
-    def normalized_ratings(self) -> Iterable[Rating]:
-        if isinstance(self.ratings, Iterable):
+    def normalized_ratings(self) -> Sequence[Rating]:
+        if isinstance(self.ratings, Sequence):
             return self.ratings
         return (self.ratings, )
 
