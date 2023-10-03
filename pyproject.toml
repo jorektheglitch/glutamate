@@ -1,0 +1,38 @@
+[build-system]
+requires      = [ "setuptools>=61.0.0", "wheel" ]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = [ "glutamate" ]
+
+[project]
+name = "glutamate"
+version = "0.0.1a1"
+description = "Python library for querying and downloading posts from e621"
+readme = "README.md"
+authors = [{ name = "jorektheglitch", email = "jorektheglitch@yandex.ru" }]
+license = { file = "LICENSE" }
+classifiers = [
+    # "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+]
+keywords = ["e621", "glutamate"]
+dependencies = [
+    "adaptix >= 3.0.0",
+    "aiofiles >= 23.1",
+    "aiohttp >= 3.8",
+    "aiohttp-socks >= 0.8",
+    "polars >= 0.17",
+    "tqdm >= 4.65",
+]
+requires-python = ">=3.10"
+
+[project.optional-dependencies]
+dev = [ "mypy" ]
+
+[project.urls]
+Homepage = "https://github.com/jorektheglitch/glutamate/"
+
+[project.scripts]
+realpython = "glutamate.__main__:main"
