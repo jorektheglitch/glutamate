@@ -10,15 +10,15 @@ from logging import getLogger
 from operator import iand, ior
 from pathlib import Path
 
-from typing import Generic, Iterable, Iterator, Literal, Mapping, Sequence, TypeVar, overload
+from typing import Container, Generic, Iterable, Iterator, Literal, Mapping, Sequence, TypeVar, overload
 
 import polars as pl
 from pyparsing import MutableSequence
 
 from glutamate.consts import POST_COLUMNS, TAG_COLUMNS
-from glutamate.datamodel import EXT, Post, Rating, TagCategory, DEFAULT_CATEGORIES_ORDER, TagsFormat
-from glutamate.datamodel import ANY_EXT, ANY_RATING
-from glutamate.datamodel import load_post
+from glutamate.datamodel import EXT, Post, Rating, TagCategory, DEFAULT_CATEGORIES_ORDER, Tag
+from glutamate.datamodel import ANY_EXT, ANY_RATING, ANY_TAG_CATEGORY
+from glutamate.datamodel import load_post, load_tag
 
 
 log = getLogger(__name__)
@@ -27,7 +27,7 @@ E6Posts = TypeVar("E6Posts", covariant=True)
 E6Tags = TypeVar("E6Tags", covariant=True)
 
 
-class E621(ABC):
+class E621(ABC):  # TODO: update according to new methods in E621Data
     @abstractmethod
     def filter_known_tags(self, tags: Iterable[str]) -> set[str]:
         pass
@@ -100,7 +100,7 @@ class Query:
         return (self.ratings, )
 
 
-class E621Tags(ABC):
+class E621Tags(ABC, Sequence[Tag], Container[Tag | str]):
     @abstractmethod
     def filter_known(self, tags: Iterable[str]) -> set[str]:
         pass
@@ -111,6 +111,18 @@ class E621Tags(ABC):
                      *,
                      ordering: Sequence[TagCategory] = DEFAULT_CATEGORIES_ORDER,  # noqa
                      ) -> MutableSequence[str]:
+        pass
+
+    @abstractmethod
+    def select(self: E6Tags,
+               include: Iterable[str | Tag] = (),
+               *,
+               categories: Iterable[TagCategory] = set(ANY_TAG_CATEGORY)
+               ) -> E6Tags:
+        pass
+
+    @abstractmethod
+    def with_stats(self: E6Tags, stats_update: Mapping[str, int]) -> E6Tags:
         pass
 
 
@@ -184,6 +196,82 @@ class E621TagsDF(E621Tags, DataframeWrapper[AnyFrameT]):
         remains = [tag for tag in tags if tag not in ordered]
         ordered.extend(remains)
         return ordered
+
+    def select(self, include: Iterable[str | Tag] = (), *, categories: Iterable[TagCategory] = set(ANY_TAG_CATEGORY)) -> E621TagsDF:
+        include = set(
+            tag.name if isinstance(tag, Tag) else tag
+            for tag in include
+        )
+        filters: list[pl.Expr] = []
+        if categories != ANY_TAG_CATEGORY:
+            catefories_filter = (pl.col('category').is_in(set(category.value for category in categories)))
+            filters.append(catefories_filter)
+        filters.append(pl.col('name').is_in(include))
+        filter = _combine_pl_filter_exprs(*filters, method='all')
+        filtered_tags_df = self._dataframe.filter(filter)
+        return E621TagsDF(filtered_tags_df)
+
+    def with_stats(self, stats_update: Mapping[str, int]) -> E621TagsDF:
+        names, counts = zip(*stats_update.items())
+        df = self.dataframe
+        update_df: pl.DataFrame | pl.LazyFrame = pl.DataFrame({'name': names, 'new_count': counts})
+        if isinstance(df, pl.LazyFrame):
+            update_df = update_df.lazy()
+        updated_df = self.dataframe.join(
+            update_df,  # type: ignore
+            left_on=pl.col('name'),
+            right_on=pl.col('name'),
+        ).select(
+            ['id', 'name', 'category', 'new_count']
+        ).rename(
+            {'new_count': 'post_count'}
+        )
+        return E621TagsDF(updated_df)
+
+    def __contains__(self, value: object) -> bool:
+        match value:
+            case Tag(): filter_expr = pl.col('id') == value.id
+            case str(): filter_expr = pl.col('name') == value
+            case _: return False
+        filtered = self._dataframe.filter(filter_expr)
+        if isinstance(filtered, pl.LazyFrame):
+            filtered = filtered.collect()
+        return bool(len(filtered))
+
+    @overload
+    def __getitem__(self, index: int) -> Tag: ...
+    @overload
+    def __getitem__(self, index: slice) -> E621TagsDF: ...
+
+    def __getitem__(self, index: int | slice) -> Tag | E621TagsDF:
+        selected = self.dataframe[index]
+        if isinstance(index, int):
+            if isinstance(selected, pl.LazyFrame):
+                selected = selected.collect()
+            tags_info_iter = selected.iter_rows(named=True)
+            tags_iter = map(load_tag, tags_info_iter)
+            tag = next(tags_iter)
+            return tag
+        return E621TagsDF(selected)
+
+    def __iter__(self) -> Iterator[Tag]:
+        posts_df: pl.DataFrame | pl.LazyFrame = self._dataframe
+        if isinstance(posts_df, pl.LazyFrame):
+            posts_df = posts_df.collect()
+        posts_iter = posts_df.iter_rows(named=True)
+        return map(load_tag, posts_iter)
+
+    def __len__(self) -> int:
+        count_df = self._dataframe.select(pl.count())
+        if isinstance(count_df, pl.LazyFrame):
+            count_df = count_df.collect()
+        count = count_df["count"][0]
+        return count
+
+    def __reversed__(self) -> Iterator[Tag]:
+        reversed_df = self._dataframe.reverse()
+        reversed_posts = E621TagsDF(reversed_df)
+        return iter(reversed_posts)
 
 
 class E621TagsCSV(E621TagsDF[pl.LazyFrame], CSVDataframeMixin):
@@ -343,6 +431,14 @@ class E621Data(E621):
             )
         posts = self.posts.select(query, include_deleted=include_deleted)
         return posts
+
+    @overload
+    def select_tags(self, *, include_tags: Iterable[str]) -> E621Tags: ...
+    @overload
+    def select_tags(self, *, categories: Iterable[TagCategory]) -> E621Tags: ...
+
+    def select_tags(self, *, include_tags: Iterable[str] = (), categories: Iterable[TagCategory] = ANY_TAG_CATEGORY) -> E621Tags:
+        return self.tags.select(include_tags, categories=categories)
 
     def filter_known_tags(self, tags: Iterable[str]) -> set[str]:
         return self.tags.filter_known(tags)

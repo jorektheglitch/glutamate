@@ -27,8 +27,29 @@ class Rating(Enum):
     SAFE = "s"
 
 
+class TagCategory(Enum):
+    general = 0
+    artist = 1
+    rating = 2
+    copyright = 3
+    character = 4
+    species = 5
+    invalid = 6
+    meta = 7
+    lore = 8
+
+    @classmethod
+    def from_name(cls, name: str) -> TagCategory:
+        try:
+            category = getattr(cls, name)
+        except AttributeError:
+            raise ValueError(f"Unknown category '{name}'")
+        return category
+
+
 ANY_EXT = tuple(EXT)
 ANY_RATING = tuple(Rating)
+ANY_TAG_CATEGORY = tuple(TagCategory)
 
 
 @dataclass
@@ -80,30 +101,18 @@ class Post:
 
 
 @dataclass
+class Tag:
+    id: int
+    category: TagCategory
+    name: str
+    post_count: int
+
+
+@dataclass
 class TagsFormat:
     underscores: bool = True
     parentheses: bool = True
     tags_ordering: Sequence[TagCategory] | None = None
-
-
-class TagCategory(Enum):
-    general = 0
-    artist = 1
-    rating = 2
-    copyright = 3
-    character = 4
-    species = 5
-    invalid = 6
-    meta = 7
-    lore = 8
-
-    @classmethod
-    def from_name(cls, name: str) -> TagCategory:
-        try:
-            category = getattr(cls, name)
-        except AttributeError:
-            raise ValueError(f"Unknown category '{name}'")
-        return category
 
 
 DEFAULT_CATEGORIES_ORDER = [
@@ -150,3 +159,7 @@ _retort = Retort(
 
 def load_post(data: dict[str, Any]) -> Post:
     return _retort.load(data, Post)
+
+
+def load_tag(data: dict[str, Any]) -> Tag:
+    return _retort.load(data, Tag)
