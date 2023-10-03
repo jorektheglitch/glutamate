@@ -417,6 +417,20 @@ class E621Data(E621):
     posts: E621Posts
     tags: E621Tags
 
+    def select(self, query: Query) -> E621Data:
+        query_tags = set(chain(query.include_tags, query.exclude_tags))
+        unknown_tags = query_tags - self.filter_known_tags(query_tags)
+        if unknown_tags:
+            raise ValueError(f'Query contains unknown tags: {", ".join(map(repr, unknown_tags))}')
+        posts = self.select_posts(query)
+        new_tags_stats = posts.get_tags_stats()
+        tags = self.select_tags(
+            include_tags=new_tags_stats
+        ).with_stats(
+            new_tags_stats
+        )
+        return E621Data(posts, tags)
+
     def select_posts(self,
                      query: Query,
                      *,
