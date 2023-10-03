@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from functools import partial
 import logging
 from dataclasses import dataclass
 from itertools import pairwise
@@ -11,12 +12,14 @@ from typing import Generic, Iterable, Literal, Sequence, TypeVar
 import aiofiles
 from aiohttp.client import ClientSession
 from aiohttp_socks import ProxyConnector
-from tqdm.auto import tqdm
+from tqdm import tqdm
 
 from glutamate.datamodel import Post
+from glutamate.inner_types import Tracker, TrackerFactory
 
 
 logger = logging.getLogger(__name__)
+default_tracker = partial(tqdm, disable=True)
 
 _Meta = TypeVar("_Meta")
 
@@ -54,14 +57,14 @@ class FilesDownloader:
                  workers_count: int = 16,
                  chunk_size: int | None = None,
                  proxy_url: str | None = None,
-                 enable_tqdm: bool = False,
                  logger: Logger = logger,
+                 tracker: TrackerFactory = default_tracker,
                  ) -> None:
         self._workers_count = workers_count
         self._chunk_size = chunk_size
         self._proxy_url = proxy_url
-        self._disable_tqdm = not enable_tqdm
         self._log = logger
+        self._tracker = tracker
 
     def download_all(self, infos: Sequence[_Task]) -> list[FinishedDownload[_Task]]:
         self._log.info("Start downloading")
@@ -79,7 +82,7 @@ class FilesDownloader:
         async with ClientSession(connector=connector) as client:
             for download_info in tasks:
                 queue.put_nowait((client, download_info))
-            with tqdm(total=queue.qsize(), disable=self._disable_tqdm) as total_progress:
+            with self._tracker(total=queue.qsize()) as total_progress:
                 events: list[asyncio.Event | None] = [asyncio.Event() for _ in range(workers_count-1)]
                 events = [None, *events, None]
                 event_pairs = list(pairwise(events))
@@ -97,7 +100,7 @@ class FilesDownloader:
 
     async def _wrapped_worker(self,
                               queue: asyncio.Queue[tuple[ClientSession, _Task]],
-                              total_progress: tqdm,
+                              total_progress: Tracker,
                               worker_position: int = 0,
                               syncronisation_events: tuple[asyncio.Event | None, asyncio.Event | None] = (None, None),
                               ) -> list[FinishedDownload[_Task]]:
@@ -107,7 +110,7 @@ class FilesDownloader:
             await self_event.wait()
             self_event.clear()
         desc = f"Worker {worker_position:02}"
-        with tqdm(desc=desc, unit="B", unit_scale=True, position=worker_position, disable=self._disable_tqdm) as progress:
+        with self._tracker(desc=desc, unit="B", unit_scale=True, position=worker_position) as progress:
             if next_event:
                 next_event.set()
             self._log.info("Worker %s ready, start downloading files", worker_position)
@@ -121,8 +124,8 @@ class FilesDownloader:
 
     async def _worker(self,
                       queue: asyncio.Queue[tuple[ClientSession, _Task]],
-                      progress: tqdm,
-                      total_progress: tqdm,
+                      progress: Tracker,
+                      total_progress: Tracker,
                       ) -> list[FinishedDownload[_Task]]:
         results: list[FinishedDownload[_Task]] = []
         while not queue.empty():
@@ -144,7 +147,7 @@ class FilesDownloader:
                 total_progress.update(1)
         return results
 
-    async def _download(self, client: ClientSession, task: DownloadTask, progress: tqdm) -> int:
+    async def _download(self, client: ClientSession, task: DownloadTask, progress: Tracker) -> int:
         async with client.get(task.url) as response:
             response.raise_for_status()
             content_length = response.content_length or 0
