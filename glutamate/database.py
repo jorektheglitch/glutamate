@@ -11,7 +11,6 @@ from operator import iand, ior
 from pathlib import Path
 
 from typing import Container, Generic, Iterable, Iterator, Literal, Mapping, Sequence, TypeVar, overload
-from types import EllipsisType as ellipsis
 
 import polars as pl
 from pyparsing import MutableSequence
@@ -245,7 +244,7 @@ class E621TagsDF(E621Tags, DataframeWrapper[AnyFrameT]):
     def __getitem__(self, index: slice) -> E621TagsDF: ...
 
     def __getitem__(self, index: int | slice) -> Tag | E621TagsDF:
-        selected = self.dataframe[index]
+        selected = self.dataframe[index]  # TODO: fix LazyFrame case
         if isinstance(index, int):
             if isinstance(selected, pl.LazyFrame):
                 selected = selected.collect()
@@ -376,7 +375,7 @@ class E621PostsDF(E621Posts, DataframeWrapper[AnyFrameT]):
     def __getitem__(self, index: slice) -> Sequence[Post]: ...
 
     def __getitem__(self, index: int | slice) -> Post | Sequence[Post]:
-        selected = self._dataframe[index]
+        selected = self._dataframe[index]  # TODO: fix LazyFrame case
         if isinstance(index, int):
             if isinstance(selected, pl.LazyFrame):
                 selected = selected.collect()
