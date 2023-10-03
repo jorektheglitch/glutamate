@@ -7,7 +7,7 @@ py-modules = [ "glutamate" ]
 
 [project]
 name = "glutamate"
-version = "0.0.1a1"
+version = "0.0.1a2"
 description = "Python library for querying and downloading posts from e621"
 readme = "README.md"
 authors = [{ name = "jorektheglitch", email = "jorektheglitch@yandex.ru" }]
@@ -34,5 +34,3 @@ dev = [ "mypy" ]
 [project.urls]
 Homepage = "https://github.com/jorektheglitch/glutamate/"
 
-[project.scripts]
-realpython = "glutamate.__main__:main"
