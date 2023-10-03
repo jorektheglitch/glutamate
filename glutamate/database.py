@@ -11,6 +11,7 @@ from operator import iand, ior
 from pathlib import Path
 
 from typing import Container, Generic, Iterable, Iterator, Literal, Mapping, Sequence, TypeVar, overload
+from types import EllipsisType as ellipsis
 
 import polars as pl
 from pyparsing import MutableSequence
