@@ -2,6 +2,12 @@
 
 Easy to use Python library for querying and downloading posts from e621.net.
 
+## Installation
+
+```bash
+pip install glutamate
+```
+
 ## Example
 
 ```python
