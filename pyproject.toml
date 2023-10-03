@@ -19,7 +19,7 @@ classifiers = [
 ]
 keywords = ["e621", "glutamate"]
 dependencies = [
-    "adaptix >= 3.0.0",
+    "adaptix >= 3.0.0a3",
     "aiofiles >= 23.1",
     "aiohttp >= 3.8",
     "aiohttp-socks >= 0.8",
