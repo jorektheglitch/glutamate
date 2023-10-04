@@ -7,8 +7,6 @@ from functools import cached_property
 from typing import Any, Sequence
 
 from adaptix import Retort, P, loader, name_mapping
-from adaptix.load_error import LoadError
-from adaptix.struct_path import get_path
 
 from glutamate.consts import E621_STATIC_URL
 
@@ -87,7 +85,7 @@ class Post:
     @cached_property
     def tags(self) -> frozenset[str]:
         return frozenset(self.tag_string.split())
-    
+
     @cached_property
     def file_url(self) -> str:
         md5 = self.md5

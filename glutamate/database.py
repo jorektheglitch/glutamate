@@ -11,6 +11,7 @@ from operator import iand, ior
 from pathlib import Path
 
 from typing import Container, Generic, Iterable, Iterator, Literal, Mapping, Sequence, TypeVar, overload
+from types import EllipsisType as ellipsis
 
 import polars as pl
 from pyparsing import MutableSequence
@@ -33,7 +34,7 @@ class E621(ABC):  # TODO: update according to new methods in E621Data
         pass
 
     @abstractmethod
-    def reorder_tags(self, 
+    def reorder_tags(self,
                      tags: Iterable[str],
                      ordering: Sequence[TagCategory] = DEFAULT_CATEGORIES_ORDER,  # noqa
                      ) -> Sequence[str]:
@@ -66,9 +67,10 @@ class Query:
     def copy_with(self,
                   *,
                   include_tags: Sequence[str] | ellipsis = ..., exclude_tags: Sequence[str] | ellipsis = ...,
-                  extensions: EXT | Sequence[EXT] | ellipsis = ..., ratings: Rating | Sequence[Rating] | ellipsis = ..., 
-                  min_score: int | ellipsis = ..., min_favs: int | ellipsis = ..., min_date: date | None | ellipsis = ..., min_area: int | ellipsis = ...,
-                  top_n: int | None | ellipsis =..., include_tags_rate: Rating | Sequence[Rating] | ellipsis = ...,
+                  extensions: EXT | Sequence[EXT] | ellipsis = ..., ratings: Rating | Sequence[Rating] | ellipsis = ...,
+                  min_score: int | ellipsis = ..., min_favs: int | ellipsis = ...,
+                  min_date: date | None | ellipsis = ..., min_area: int | ellipsis = ...,
+                  top_n: int | None | ellipsis = ..., include_tags_rate: Rating | Sequence[Rating] | ellipsis = ...,
                   skip_posts: Sequence[int | str] | ellipsis = ...,
                   ) -> Query:
         include_tags = tuple(self.include_tags) if isinstance(include_tags, ellipsis) else include_tags
@@ -84,7 +86,7 @@ class Query:
         skip_posts = self.skip_posts if isinstance(skip_posts, ellipsis) else skip_posts
         return Query(
             include_tags, exclude_tags,
-            extensions, ratings, 
+            extensions, ratings,
             min_score, min_favs, min_date, min_area,
             top_n, include_tags_rate, skip_posts
         )
@@ -161,43 +163,53 @@ class E621TagsDF(E621Tags, DataframeWrapper[AnyFrameT]):
             columns_raw = ', '.join(map(repr, sorted(missing_columns)))
             raise ValueError(f'Tags dataset missing few columns: {columns_raw}')
         super().__init__(dataframe)
-    
+
     def filter_known(self, tags: Iterable[str]) -> set[str]:
-        df = self._dataframe
         filters = [pl.col('name') == tag for tag in tags]
         filter = _combine_pl_filter_exprs(*filters, method='any')
-        filtered_tags_df = df.filter(filter).select('name')
+        filtered_tags_df = self._dataframe.filter(filter).select('name')
+
         if isinstance(filtered_tags_df, pl.LazyFrame):
             filtered_tags_df = filtered_tags_df.collect()
+
         filtered_tags = set(filtered_tags_df['name'].to_list())
+
         return filtered_tags
-    
+
     def reorder_tags(self,
                      tags: Iterable[str],
                      *,
                      ordering: Sequence[TagCategory] = DEFAULT_CATEGORIES_ORDER
                      ) -> MutableSequence[str]:
-        tags = set(tags)
         ordered = []
-        try:
-            num_ordering = [cat.value for cat in ordering]
-        except KeyError as err:
-            raise ValueError(f'Unknown category found: {err}') from err
+        tags = set(tags)
+        num_ordering = [cat.value for cat in ordering]
+
         filters = [pl.col('name') == tag for tag in tags]
         filter = _combine_pl_filter_exprs(*filters, method='any')
-        tags_df = self._dataframe.filter(filter)
+        tags_df = (
+            self._dataframe
+            .select(['name', 'category'])
+            .filter(filter)
+        )
+        if isinstance(tags_df, pl.LazyFrame):
+            tags_df = tags_df.collect()
+
         for category_num in num_ordering:
-            category_tags_df = tags_df.filter(pl.col('category') == category_num).select('name')
-            if isinstance(category_tags_df, pl.LazyFrame):
-                category_tags_df = category_tags_df.collect()
+            category_tags_df = tags_df.filter(pl.col('category') == category_num)
             category_tags = category_tags_df['name'].to_list()
             category_tags.sort()
             ordered.extend(category_tags)
+
         remains = [tag for tag in tags if tag not in ordered]
         ordered.extend(remains)
+
         return ordered
 
-    def select(self, include: Iterable[str | Tag] = (), *, categories: Iterable[TagCategory] = set(ANY_TAG_CATEGORY)) -> E621TagsDF:
+    def select(self,
+               include: Iterable[str | Tag] = (), *,
+               categories: Iterable[TagCategory] = set(ANY_TAG_CATEGORY)
+               ) -> E621TagsDF:
         include = set(
             tag.name if isinstance(tag, Tag) else tag
             for tag in include
@@ -212,12 +224,14 @@ class E621TagsDF(E621Tags, DataframeWrapper[AnyFrameT]):
         return E621TagsDF(filtered_tags_df)
 
     def with_stats(self, stats_update: Mapping[str, int]) -> E621TagsDF:
+        df = self._dataframe
+
         names, counts = zip(*stats_update.items())
-        df = self.dataframe
         update_df: pl.DataFrame | pl.LazyFrame = pl.DataFrame({'name': names, 'new_count': counts})
         if isinstance(df, pl.LazyFrame):
             update_df = update_df.lazy()
-        updated_df = self.dataframe.join(
+
+        updated_df = df.join(
             update_df,  # type: ignore
             left_on=pl.col('name'),
             right_on=pl.col('name'),
@@ -226,6 +240,7 @@ class E621TagsDF(E621Tags, DataframeWrapper[AnyFrameT]):
         ).rename(
             {'new_count': 'post_count'}
         )
+
         return E621TagsDF(updated_df)
 
     def __contains__(self, value: object) -> bool:
@@ -233,9 +248,11 @@ class E621TagsDF(E621Tags, DataframeWrapper[AnyFrameT]):
             case Tag(): filter_expr = pl.col('id') == value.id
             case str(): filter_expr = pl.col('name') == value
             case _: return False
+
         filtered = self._dataframe.filter(filter_expr)
         if isinstance(filtered, pl.LazyFrame):
             filtered = filtered.collect()
+
         return bool(len(filtered))
 
     @overload
@@ -295,6 +312,7 @@ class E621PostsDF(E621Posts, DataframeWrapper[AnyFrameT]):
         posts_df = self._dataframe.lazy()
         if not include_deleted:
             posts_df = posts_df.filter(pl.col('is_deleted') == 'f')
+
         filters: list[pl.Expr] = []
         if query.include_tags:
             include_tags_filter = self._tags_filter(query.include_tags)
@@ -332,15 +350,22 @@ class E621PostsDF(E621Posts, DataframeWrapper[AnyFrameT]):
             if md5s:
                 skip_posts_md5_filter = (~pl.col('md5').is_in(md5s))
                 filters.append(skip_posts_md5_filter)
+
         query_filter = _combine_pl_filter_exprs(*filters, method='all')
-        selected_posts_df = posts_df.filter(query_filter)
+        selected_posts_df: pl.DataFrame | pl.LazyFrame = posts_df.filter(query_filter)
         if query.top_n:
             selected_posts_df = selected_posts_df.top_k(query.top_n, by=pl.col('score'))
+
+        # if this E621PostsDF works on DataFrame than resulting E621PostsDF will works on DataFrame
+        if isinstance(self._dataframe, pl.DataFrame) and isinstance(selected_posts_df, pl.LazyFrame):
+            selected_posts_df = selected_posts_df.collect()
         selected_posts = E621PostsDF(selected_posts_df)
+
         return selected_posts
-    
+
     def get_tags_stats(self) -> Mapping[str, int]:
-        stats_df = (self._dataframe.select(['tag_string'])
+        stats_df = (
+            self._dataframe.select(['tag_string'])
             .with_columns(pl.col('tag_string').str.split(',').alias('tags'))
             .select(['tags'])
             .explode('tags')
@@ -350,23 +375,32 @@ class E621PostsDF(E621Posts, DataframeWrapper[AnyFrameT]):
         )
         if isinstance(stats_df, pl.LazyFrame):
             stats_df = stats_df.collect()
-        return {name: count for name, count in zip(stats_df["name"], stats_df["count"])}
+
+        stats = {
+            name: count
+            for name, count in zip(stats_df["name"], stats_df["count"])
+        }
+        return stats
 
     def _tags_filter(self, tags: Iterable[str], *, exclude: bool = False) -> pl.Expr:
         tags = (re.escape(word).replace(r'\*', r'\S*') for word in tags)
         tags_patterns = (r'(^|\s)(' + tag + r')($|\s)' for tag in tags)
         tags_filters = (pl.col('tag_string').str.contains(pattern) for pattern in tags_patterns)
+
         tags_filter: pl.Expr = _combine_pl_filter_exprs(*tags_filters, method='all')
         if exclude:
             tags_filter = ~tags_filter
+
         return tags_filter
 
     def __contains__(self, value: object) -> bool:
         if not isinstance(value, Post):
             return False
+
         filtered = self._dataframe.filter(pl.col('id') == value.id)
         if isinstance(filtered, pl.LazyFrame):
             filtered = filtered.collect()
+
         return bool(len(filtered))
 
     @overload
@@ -422,6 +456,7 @@ class E621Data(E621):
         unknown_tags = query_tags - self.filter_known_tags(query_tags)
         if unknown_tags:
             raise ValueError(f'Query contains unknown tags: {", ".join(map(repr, unknown_tags))}')
+
         posts = self.select_posts(query)
         new_tags_stats = posts.get_tags_stats()
         tags = self.select_tags(
@@ -429,6 +464,7 @@ class E621Data(E621):
         ).with_stats(
             new_tags_stats
         )
+
         return E621Data(posts, tags)
 
     def select_posts(self,
@@ -451,22 +487,35 @@ class E621Data(E621):
     @overload
     def select_tags(self, *, categories: Iterable[TagCategory]) -> E621Tags: ...
 
-    def select_tags(self, *, include_tags: Iterable[str] = (), categories: Iterable[TagCategory] = ANY_TAG_CATEGORY) -> E621Tags:
+    def select_tags(self,
+                    *,
+                    include_tags: Iterable[str] = (),
+                    categories: Iterable[TagCategory] = ANY_TAG_CATEGORY
+                    ) -> E621Tags:
         return self.tags.select(include_tags, categories=categories)
 
     def filter_known_tags(self, tags: Iterable[str]) -> set[str]:
         return self.tags.filter_known(tags)
 
-    def reorder_tags(self, tags: Iterable[str], ordering: Sequence[TagCategory] = DEFAULT_CATEGORIES_ORDER) -> Sequence[str]:
+    def reorder_tags(self,
+                     tags: Iterable[str],
+                     ordering: Sequence[TagCategory] = DEFAULT_CATEGORIES_ORDER
+                     ) -> Sequence[str]:
         return self.tags.reorder_tags(tags, ordering=ordering)
 
 
-def autoinit_from_directory(data_export_directory: str | Path, *, specific_date: date | None = None, strict_coercion: bool = True) -> E621:
-    data_export_directory = Path(data_export_directory)
-    data_files = _find_dump_files(data_export_directory, specific_date=specific_date)
-    ordered_groups = sorted(data_files.items(), key=lambda e: e[0], reverse=True)
+def autoinit_from_directory(data_export_directory: str | Path,
+                            *,
+                            specific_date: date | None = None,
+                            strict_coercion: bool = True
+                            ) -> E621:
     tags: E621Tags | None = None
     posts: E621Posts | None = None
+
+    data_export_directory = Path(data_export_directory)
+    data_files = _find_dump_files(data_export_directory, specific_date=specific_date)
+
+    ordered_groups = sorted(data_files.items(), key=lambda e: e[0], reverse=True)
     for files_date, files_for_date in ordered_groups:
         tags_files_group = files_for_date.get("tags", {})
         posts_files_group = files_for_date.get("posts", {})
@@ -476,22 +525,26 @@ def autoinit_from_directory(data_export_directory: str | Path, *, specific_date:
             )
             log.info("Skip date %s, can not find any %s file", files_date, missed)
             continue
+
         try:
             tags_df = _try_scan_files(tags_files_group.values())
             tags = E621TagsDF(tags_df)
         except ValueError:
             pass
+
         try:
             posts_df = _try_scan_files(posts_files_group.values())
             posts = E621PostsDF(posts_df)
         except ValueError:
             pass
+
         if tags and posts:
             break
     else:
         raise FileNotFoundError("Can't find all needed files (tags and posts)")
-    e621 = E621Data(posts, tags)
-    return e621
+
+    e621_data = E621Data(posts, tags)
+    return e621_data
 
 
 def _find_dump_files(data_export_directory: Path,
@@ -546,18 +599,20 @@ def _scan_data(file_path: Path) -> pl.LazyFrame:
 
 
 def write_parquet(df: pl.DataFrame | pl.LazyFrame,
-                   parquet_path: Path | str,
-                   *,
-                   allow_overwrite: bool = False
-                   ) -> None:
+                  parquet_path: Path | str,
+                  *,
+                  allow_overwrite: bool = False
+                  ) -> None:
     parquet_path = Path(parquet_path)
     if parquet_path.exists() and not allow_overwrite:
         raise FileExistsError(f"File '{parquet_path}' already exists")
+
     if isinstance(df, pl.LazyFrame):
         df = df.collect()
+
     df.write_parquet(parquet_path)
 
 
 def _combine_pl_filter_exprs(*exprs: pl.Expr, method: Literal['any', 'all'] = 'all') -> pl.Expr:
-    reducer = (ior if method=='any' else iand)
+    reducer = (ior if method == 'any' else iand)
     return reduce(reducer, exprs)

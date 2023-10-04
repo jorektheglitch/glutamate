@@ -165,13 +165,17 @@ class FilesDownloader:
         return downloaded
 
 
-def download_posts(posts: Iterable[Post], 
-                   target_directory: Path, 
-                   naming: Literal['id', 'md5'], 
+def download_posts(posts: Iterable[Post],
+                   target_directory: Path,
+                   naming: Literal['id', 'md5'],
                    proxy_url: str | None = None
                    ) -> list[FinishedDownload[DownloadTask[Post]]]:
     to_download: list[DownloadTask[Post]] = [
-        DownloadTask(url=post.file_url, target_file=target_directory / f"{(post.id if naming == 'id' else post.md5)}.{post.raw_file_ext}", meta=post)
+        DownloadTask(
+            url=post.file_url,
+            target_file=target_directory / f"{(post.id if naming == 'id' else post.md5)}.{post.raw_file_ext}",
+            meta=post
+        )
         for post in posts
     ]
     downloader = FilesDownloader(proxy_url=proxy_url)

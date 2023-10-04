@@ -28,7 +28,12 @@ failed = [result for result in results if not result.ok]
 if failed:
     print(f"Failed to download {len(failed)} posts")
 
-captions = get_captions(selected_posts, tags, naming='id', remove_underscores=True, tags_to_head=('kisha', 'kisha (character)'))
+captions = get_captions(
+    posts=selected_posts, tags=tags,
+    naming='id',
+    remove_underscores=True,
+    tags_to_head=('kisha', 'kisha (character)')
+)
 write_captions(captions, target_directory)
 
 counts_csv = target_directory / 'tags.csv'

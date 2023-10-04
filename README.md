@@ -18,11 +18,11 @@ from glutamate.dataset import get_captions, write_captions, write_stats
 from glutamate.download import download_posts
 
 
-# Init with qulified file paths
+# Init with qualified file paths
 e621_data_directory = Path('./e621-data/')
-posts_csv = e621_data_directory / 'posts-2023-04-07.csv'
+posts_csv = e621_data_directory / 'posts.csv'
 posts = E621PostsCSV(posts_csv)
-tags_csv = e621_data_directory / 'tags-2023-04-04.csv'
+tags_csv = e621_data_directory / 'tags.csv'
 tags = E621TagsCSV(tags_csv)
 e621: E621 = E621Data(posts, tags)
 
@@ -31,7 +31,7 @@ e621_data_directory = Path('./e621-data/')
 e621 = autoinit_from_directory(e621_data_directory)
 
 query = Query(("kisha", "solo"))
-selected_posts = e621.select_posts(query)
+selected_posts = e621.select_posts(query, exclude_unknown_tags=True)
 
 target_directory = Path().cwd() / 'tmp' / 'kisha_solo'
 target_directory.mkdir(parents=True, exist_ok=True)
@@ -41,7 +41,12 @@ failed = [result for result in results if not result.ok]
 if failed:
     print(f"Failed to download {len(failed)} posts")
 
-captions = get_captions(selected_posts, tags, naming='id', remove_underscores=True, tags_to_head=('kisha', 'kisha (character)'))
+captions = get_captions(
+    selected_posts, tags,
+    naming='id',
+    remove_underscores=True,
+    tags_to_head=('kisha', 'kisha (character)')
+)
 write_captions(captions, target_directory)
 
 counts_csv = target_directory / 'tags.csv'

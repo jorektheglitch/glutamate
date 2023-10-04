@@ -58,6 +58,7 @@ class TrackerFactory(Protocol[T]):
         # gui: bool = False,
         **kwargs,
     ) -> Tracker: ...
+
     @overload
     def __call__(
         self: TrackerFactory[NoReturn],
@@ -90,6 +91,7 @@ class TrackerFactory(Protocol[T]):
         # gui: bool = False,
         **kwargs,
     ) -> Tracker: ...
+
     def __call__(
         self,
         iterable: Iterable[T] | None = None,
