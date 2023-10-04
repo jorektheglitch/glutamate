@@ -41,3 +41,5 @@ dev = [ "mypy" ]
 [project.urls]
 Homepage = "https://github.com/jorektheglitch/glutamate/"
 
+[project.scripts]
+realpython = "glutamate.__main__:main"
