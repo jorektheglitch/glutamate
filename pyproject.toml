@@ -3,7 +3,10 @@ requires      = [ "setuptools>=61.0.0", "wheel" ]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-py-modules = [ "glutamate" ]
+package-dir = {"glutamate" = "glutamate"}
+
+[tool.setuptools.package-data]
+glutamate = ['py.typed']
 
 [project]
 name = "glutamate"
