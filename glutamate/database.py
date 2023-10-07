@@ -59,6 +59,7 @@ class Query:
     min_score: int = 0
     min_favs: int = 0
     min_date: date | None = None
+    min_short_side: int = 0
     min_area: int = 0
     top_n: int | None = None
     include_tags_rate: Rating | Sequence[Rating] = ANY_RATING
@@ -69,7 +70,8 @@ class Query:
                   include_tags: Sequence[str] | ellipsis = ..., exclude_tags: Sequence[str] | ellipsis = ...,
                   extensions: EXT | Sequence[EXT] | ellipsis = ..., ratings: Rating | Sequence[Rating] | ellipsis = ...,
                   min_score: int | ellipsis = ..., min_favs: int | ellipsis = ...,
-                  min_date: date | None | ellipsis = ..., min_area: int | ellipsis = ...,
+                  min_date: date | None | ellipsis = ...,
+                  min_short_side: int | ellipsis = ..., min_area: int | ellipsis = ...,
                   top_n: int | None | ellipsis = ..., include_tags_rate: Rating | Sequence[Rating] | ellipsis = ...,
                   skip_posts: Sequence[int | str] | ellipsis = ...,
                   ) -> Query:
@@ -81,14 +83,15 @@ class Query:
         min_favs = self.min_favs if isinstance(min_favs, ellipsis) else min_favs
         min_date = self.min_date if isinstance(min_date, ellipsis) else min_date
         min_area = self.min_area if isinstance(min_area, ellipsis) else min_area
+        min_short_side = self.min_short_side if isinstance(min_short_side, ellipsis) else min_short_side
         top_n = self.top_n if isinstance(top_n, ellipsis) else top_n
         include_tags_rate = self.include_tags_rate if isinstance(include_tags_rate, ellipsis) else include_tags_rate
         skip_posts = self.skip_posts if isinstance(skip_posts, ellipsis) else skip_posts
         return Query(
-            include_tags, exclude_tags,
-            extensions, ratings,
-            min_score, min_favs, min_date, min_area,
-            top_n, include_tags_rate, skip_posts
+            include_tags=include_tags, exclude_tags=exclude_tags,
+            extensions=extensions, ratings=ratings,
+            min_score=min_score, min_favs=min_favs, min_date=min_date, min_short_side=min_short_side, min_area=min_area,
+            top_n=top_n, include_tags_rate=include_tags_rate, skip_posts=skip_posts
         )
 
     def normalized_extensions(self) -> Sequence[EXT]:
@@ -335,6 +338,11 @@ class E621PostsDF(E621Posts, DataframeWrapper[AnyFrameT]):
         if query.min_favs > 0:
             favs_filter = (pl.col('fav_count') >= query.min_favs)
             filters.append(favs_filter)
+        if query.min_short_side > 0:
+            short_side_filter = (
+                pl.col('image_width') >= query.min_short_side | pl.col('image_height') >= query.min_short_side
+            )
+            filters.append(short_side_filter)
         if query.min_area > 0:
             area_filter = (pl.col('image_width') * pl.col('image_height') >= query.min_area)
             filters.append(area_filter)
