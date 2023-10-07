@@ -352,7 +352,7 @@ class E621PostsDF(E621Posts, DataframeWrapper[AnyFrameT]):
             filters.append(date_filter)
         if query.skip_posts:
             ids = {e for e in query.skip_posts if isinstance(e, int)}
-            md5s = {e for e in query.skip_posts if isinstance(e, int)}
+            md5s = {e for e in query.skip_posts if isinstance(e, str)}
             if ids:
                 skip_posts_id_filter = (~pl.col('id').is_in(ids))
                 filters.append(skip_posts_id_filter)
