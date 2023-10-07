@@ -62,7 +62,7 @@ class Query:
     min_short_side: int = 0
     min_area: int = 0
     top_n: int | None = None
-    include_tags_rate: Rating | Sequence[Rating] = ANY_RATING
+    additional_rating_tags: Rating | Sequence[Rating] = ANY_RATING
     skip_posts: Sequence[int | str] = ()
 
     def copy_with(self,
@@ -72,7 +72,8 @@ class Query:
                   min_score: int | ellipsis = ..., min_favs: int | ellipsis = ...,
                   min_date: date | None | ellipsis = ...,
                   min_short_side: int | ellipsis = ..., min_area: int | ellipsis = ...,
-                  top_n: int | None | ellipsis = ..., include_tags_rate: Rating | Sequence[Rating] | ellipsis = ...,
+                  top_n: int | None | ellipsis = ...,
+                  additional_rating_tags: Rating | Sequence[Rating] | ellipsis = ...,
                   skip_posts: Sequence[int | str] | ellipsis = ...,
                   ) -> Query:
         include_tags = tuple(self.include_tags) if isinstance(include_tags, ellipsis) else include_tags
@@ -85,13 +86,13 @@ class Query:
         min_area = self.min_area if isinstance(min_area, ellipsis) else min_area
         min_short_side = self.min_short_side if isinstance(min_short_side, ellipsis) else min_short_side
         top_n = self.top_n if isinstance(top_n, ellipsis) else top_n
-        include_tags_rate = self.include_tags_rate if isinstance(include_tags_rate, ellipsis) else include_tags_rate
+        additional_rating_tags = self.additional_rating_tags if isinstance(additional_rating_tags, ellipsis) else additional_rating_tags  # noqa: E501
         skip_posts = self.skip_posts if isinstance(skip_posts, ellipsis) else skip_posts
         return Query(
             include_tags=include_tags, exclude_tags=exclude_tags,
             extensions=extensions, ratings=ratings,
             min_score=min_score, min_favs=min_favs, min_date=min_date, min_short_side=min_short_side, min_area=min_area,
-            top_n=top_n, include_tags_rate=include_tags_rate, skip_posts=skip_posts
+            top_n=top_n, additional_rating_tags=additional_rating_tags, skip_posts=skip_posts
         )
 
     def normalized_extensions(self) -> Sequence[EXT]:
