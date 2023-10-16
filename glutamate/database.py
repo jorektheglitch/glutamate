@@ -10,11 +10,10 @@ from logging import getLogger
 from operator import iand, ior
 from pathlib import Path
 
-from typing import Container, Generic, Iterable, Iterator, Literal, Mapping, Sequence, TypeVar, overload
+from typing import Container, Generic, Iterable, Iterator, Literal, Mapping, MutableSequence, Sequence, TypeVar, overload
 from types import EllipsisType as ellipsis
 
 import polars as pl
-from pyparsing import MutableSequence
 
 from glutamate.consts import POST_COLUMNS, TAG_COLUMNS
 from glutamate.datamodel import EXT, Post, Rating, TagCategory, DEFAULT_CATEGORIES_ORDER, Tag
