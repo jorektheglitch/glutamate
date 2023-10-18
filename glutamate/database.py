@@ -375,7 +375,7 @@ class E621PostsDF(E621Posts, DataframeWrapper[AnyFrameT]):
     def get_tags_stats(self) -> Mapping[str, int]:
         stats_df = (
             self._dataframe.select(['tag_string'])
-            .with_columns(pl.col('tag_string').str.split(',').alias('tags'))
+            .with_columns(pl.col('tag_string').str.split(' ').alias('tags'))
             .select(['tags'])
             .explode('tags')
             .rename({'tags': 'name'})
