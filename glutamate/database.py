@@ -221,7 +221,8 @@ class E621TagsDF(E621Tags, DataframeWrapper[AnyFrameT]):
         if categories != ANY_TAG_CATEGORY:
             catefories_filter = (pl.col('category').is_in(set(category.value for category in categories)))
             filters.append(catefories_filter)
-        filters.append(pl.col('name').is_in(include))
+        if include:
+            filters.append(pl.col('name').is_in(include))
         filter = _combine_pl_filter_exprs(*filters, method='all')
         filtered_tags_df = self._dataframe.filter(filter)
         return E621TagsDF(filtered_tags_df)
