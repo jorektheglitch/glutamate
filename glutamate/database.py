@@ -10,7 +10,9 @@ from logging import getLogger
 from operator import iand, ior
 from pathlib import Path
 
-from typing import Container, Generic, Iterable, Iterator, Literal, Mapping, MutableSequence, Sequence, TypeVar, overload
+from typing import Container, Iterable, Iterator, Literal, Mapping, MutableSequence, Sequence
+from typing import Generic, TypeVar
+from typing import overload
 from types import EllipsisType as ellipsis
 
 import polars as pl
@@ -27,7 +29,7 @@ E6Posts = TypeVar("E6Posts", covariant=True)
 E6Tags = TypeVar("E6Tags", covariant=True)
 
 
-class E621(ABC):  # TODO: update according to new methods in E621Data
+class E621(ABC):
     @abstractmethod
     def filter_known_tags(self, tags: Iterable[str]) -> set[str]:
         pass
@@ -40,12 +42,29 @@ class E621(ABC):  # TODO: update according to new methods in E621Data
         pass
 
     @abstractmethod
+    def select(self, query: Query) -> E621Data:
+        pass
+
+    @abstractmethod
     def select_posts(self,
                      query: Query,
                      *,
                      include_deleted: bool = False,
                      exclude_unknown_tags: bool = False
                      ) -> E621Posts:
+        pass
+
+    @overload
+    def select_tags(self, *, include_tags: Iterable[str]) -> E621Tags: ...
+    @overload
+    def select_tags(self, *, categories: Iterable[TagCategory]) -> E621Tags: ...
+
+    @abstractmethod
+    def select_tags(self,
+                    *,
+                    include_tags: Iterable[str] = (),
+                    categories: Iterable[TagCategory] = ANY_TAG_CATEGORY
+                    ) -> E621Tags:
         pass
 
 
