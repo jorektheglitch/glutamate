@@ -663,7 +663,7 @@ def _try_scan_files(paths: Iterable[Path]) -> pl.LazyFrame:
     df = None
     for path in paths:
         try:
-            df = _scan_data(path)
+            df = scan_file(path)
         except Exception:
             continue
         break
@@ -672,12 +672,12 @@ def _try_scan_files(paths: Iterable[Path]) -> pl.LazyFrame:
     return df
 
 
-def _scan_data(file_path: Path) -> pl.LazyFrame:
+def scan_file(file_path: Path) -> pl.LazyFrame:
     match file_path.suffix:
         case ".csv":
             return pl.scan_csv(file_path)
         case ".parquet":
-            return pl.scan_csv(file_path)
+            return pl.scan_parquet(file_path)
         case other:
             raise ValueError(f"Unsupported file extension '{other}' (file '{file_path}')")
 
