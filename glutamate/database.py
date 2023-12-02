@@ -537,6 +537,56 @@ class E621Subset(E621Data):
     posts: E621Posts
     tags: E621Tags
 
+    def get_tags_stats(self) -> Mapping[str, int]:
+        return self.posts.get_tags_stats()
+
+    def get_captions(self,
+                     *,
+                     naming: Literal['id', 'md5'],
+                     remove_underscores: bool = False,
+                     remove_parentheses: bool = False,
+                     tags_separator: str = ", ",
+                     tags_ordering: Sequence[TagCategory] = DEFAULT_CATEGORIES_ORDER,
+                     tags_to_head: Sequence[str] = (),
+                     tags_to_tail: Sequence[str] = (),
+                     add_rating_tags: Container[Rating] = (),
+                     exclude_tags: Container[str] = (),
+                     ):
+        if not tags_separator:
+            raise ValueError("Tags separator can not be empty string")
+        captions: dict[str, str] = {}
+        exclusive_order: set[str] = {*tags_to_head, *tags_to_tail}
+
+        for post in self.posts:
+            key = f"{(post.id if naming == 'id' else post.md5)}"
+            post_tags = {
+                tag for tag in post.tags
+                if not (tag in exclusive_order or tag in exclude_tags)
+            }
+            ordered_tags = self.tags.reorder_tags(post_tags, ordering=tags_ordering)
+            ordered_tags = self._format_tags(ordered_tags, remove_underscores, remove_parentheses)
+            if post.rating in add_rating_tags:
+                ordered_tags.append(post.rating.name.lower())
+            captions[key] = tags_separator.join(chain(tags_to_head, ordered_tags, tags_to_tail))
+
+        return captions
+
+    def get_autocomplete_info(self):
+        pass
+
+    @staticmethod
+    def _format_tags(tags: Iterable[str],
+                     remove_underscores: bool = False,
+                     remove_parentheses: bool = False,
+                     ) -> list[str]:
+        if remove_underscores:
+            tags = (tag.replace('_', ' ') for tag in tags)
+
+        if remove_parentheses:
+            tags = (tag.replace('(', '').replace(')', '') for tag in tags)
+
+        return list(tags)
+
 
 def autoinit_from_directory(data_export_directory: str | Path,
                             *,
