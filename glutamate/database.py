@@ -360,7 +360,7 @@ class E621PostsDF(E621Posts, DataframeWrapper[AnyFrameT]):
             filters.append(favs_filter)
         if query.min_short_side > 0:
             short_side_filter = (
-                pl.col('image_width') >= query.min_short_side | pl.col('image_height') >= query.min_short_side
+                pl.col('image_width') >= query.min_short_side & pl.col('image_height') >= query.min_short_side
             )
             filters.append(short_side_filter)
         if query.min_area > 0:
