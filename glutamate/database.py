@@ -42,7 +42,7 @@ class E621(ABC):
         pass
 
     @abstractmethod
-    def select(self, query: Query) -> E621Data:
+    def select(self, query: Query) -> E621Subset:
         pass
 
     @abstractmethod
@@ -479,7 +479,7 @@ class E621Data(E621):
     posts: E621Posts
     tags: E621Tags
 
-    def select(self, query: Query) -> E621Data:
+    def select(self, query: Query) -> E621Subset:
         query_tags = set(chain(query.include_tags, query.exclude_tags))
         unknown_tags = query_tags - self.filter_known_tags(query_tags)
         if unknown_tags:
@@ -493,7 +493,7 @@ class E621Data(E621):
             new_tags_stats
         )
 
-        return E621Data(posts, tags)
+        return E621Subset(posts, tags)
 
     def select_posts(self,
                      query: Query,
@@ -530,6 +530,12 @@ class E621Data(E621):
                      ordering: Sequence[TagCategory] = DEFAULT_CATEGORIES_ORDER
                      ) -> Sequence[str]:
         return self.tags.reorder_tags(tags, ordering=ordering)
+
+
+@dataclass(frozen=True)
+class E621Subset(E621Data):
+    posts: E621Posts
+    tags: E621Tags
 
 
 def autoinit_from_directory(data_export_directory: str | Path,
