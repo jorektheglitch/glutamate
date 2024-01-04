@@ -145,7 +145,7 @@ _retort = Retort(
         loader(bool, lambda data: {'t': True, 'f': False}.get(data, False)),
         loader(P[Post].created_at, _parse_dt),
         loader(P[Post].updated_at, _parse_dt),
-        loader(P[Post].source, lambda data: tuple(data.split())),
+        loader(P[Post].source, lambda data: tuple(data.split()) if data is not None else ()),
         loader(P[Post].parent_id, lambda data: int(data) if data else None),
         loader(P[Post].approver_id, lambda data: int(data) if data else None),
         loader(P[Post].duration, lambda data: timedelta(seconds=float(data)) if data else None),
