@@ -188,8 +188,11 @@ class E621TagsDF(E621Tags, DataframeWrapper[AnyFrameT]):
 
     def filter_known(self, tags: Iterable[str]) -> set[str]:
         filters = [pl.col('name') == tag for tag in tags]
-        filter = _combine_pl_filter_exprs(*filters, method='any')
-        filtered_tags_df = self._dataframe.filter(filter).select('name')
+        if filters:
+            filter = _combine_pl_filter_exprs(*filters, method='any')
+            filtered_tags_df = self._dataframe.filter(filter).select('name')
+        else:
+            filtered_tags_df = self._dataframe.select('name')
 
         if isinstance(filtered_tags_df, pl.LazyFrame):
             filtered_tags_df = filtered_tags_df.collect()
@@ -242,8 +245,12 @@ class E621TagsDF(E621Tags, DataframeWrapper[AnyFrameT]):
             filters.append(catefories_filter)
         if include:
             filters.append(pl.col('name').is_in(include))
-        filter = _combine_pl_filter_exprs(*filters, method='all')
-        filtered_tags_df = self._dataframe.filter(filter)
+
+        if filters:
+            filter = _combine_pl_filter_exprs(*filters, method='all')
+            filtered_tags_df = self._dataframe.filter(filter)
+        else:
+            filtered_tags_df = self._dataframe
         return E621TagsDF(filtered_tags_df)
 
     def with_stats(self, stats_update: Mapping[str, int]) -> E621TagsDF:
@@ -379,8 +386,13 @@ class E621PostsDF(E621Posts, DataframeWrapper[AnyFrameT]):
                 skip_posts_md5_filter = (~pl.col('md5').is_in(md5s))
                 filters.append(skip_posts_md5_filter)
 
-        query_filter = _combine_pl_filter_exprs(*filters, method='all')
-        selected_posts_df: pl.DataFrame | pl.LazyFrame = posts_df.filter(query_filter)
+        selected_posts_df: pl.DataFrame | pl.LazyFrame
+        if filters:
+            query_filter = _combine_pl_filter_exprs(*filters, method='all')
+            selected_posts_df = posts_df.filter(query_filter)
+        else:
+            selected_posts_df = posts_df
+
         if query.top_n:
             selected_posts_df = selected_posts_df.top_k(query.top_n, by=pl.col('score'))
 
@@ -698,5 +710,6 @@ def write_parquet(df: pl.DataFrame | pl.LazyFrame,
 
 
 def _combine_pl_filter_exprs(*exprs: pl.Expr, method: Literal['any', 'all'] = 'all') -> pl.Expr:
+    head, *_exprs = exprs
     reducer = (ior if method == 'any' else iand)
-    return reduce(reducer, exprs)
+    return reduce(reducer, _exprs, head)
