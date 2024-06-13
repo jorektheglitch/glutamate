@@ -103,7 +103,7 @@ __pypackages__/
 # Environments
 .env
 .venv
-.venv3.*
+.venv*
 env/
 venv/
 ENV/
