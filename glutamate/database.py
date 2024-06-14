@@ -68,6 +68,32 @@ class E621(ABC):
         pass
 
 
+class E621Subset(E621, ABC):
+
+    @abstractmethod
+    def get_tags_stats(self) -> Mapping[str, int]:
+        pass
+
+    @abstractmethod
+    def get_captions(self,
+                     *,
+                     naming: Literal['id', 'md5'],
+                     remove_underscores: bool = False,
+                     remove_parentheses: bool = False,
+                     tags_separator: str = ", ",
+                     tags_ordering: Sequence[TagCategory] = DEFAULT_CATEGORIES_ORDER,
+                     tags_to_head: Sequence[str] = (),
+                     tags_to_tail: Sequence[str] = (),
+                     add_rating_tags: Container[Rating] = (),
+                     exclude_tags: Container[str] = (),
+                     ) -> dict[str, str]:
+        pass
+
+    @abstractmethod
+    def get_autocomplete_info(self):
+        pass
+
+
 @dataclass(frozen=True)
 class Query:
     include_tags: Sequence[str] = ()
@@ -491,13 +517,13 @@ class E621Data(E621):
     posts: E621Posts
     tags: E621Tags
 
-    def select(self, query: Query) -> E621Subset:
+    def select(self, query: Query, include_deleted: bool = False) -> E621DataSubset:
         query_tags = set(chain(query.include_tags, query.exclude_tags))
         unknown_tags = query_tags - self.filter_known_tags(query_tags)
         if unknown_tags:
             raise ValueError(f'Query contains unknown tags: {", ".join(map(repr, unknown_tags))}')
 
-        posts = self.select_posts(query)
+        posts = self.select_posts(query, include_deleted=include_deleted)
         new_tags_stats = posts.get_tags_stats()
         tags = self.select_tags(
             include_tags=new_tags_stats
@@ -505,7 +531,7 @@ class E621Data(E621):
             new_tags_stats
         )
 
-        return E621Subset(posts, tags)
+        return E621DataSubset(posts, tags)
 
     def select_posts(self,
                      query: Query,
@@ -545,7 +571,7 @@ class E621Data(E621):
 
 
 @dataclass(frozen=True)
-class E621Subset(E621Data):
+class E621DataSubset(E621Subset, E621Data):
     posts: E621Posts
     tags: E621Tags
 
