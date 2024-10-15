@@ -10,7 +10,7 @@ glutamate = ['py.typed']
 
 [project]
 name = "glutamate"
-version = "0.0.1a6"
+version = "0.0.1a7"
 description = "Python library for querying and downloading posts from e621"
 readme = "README.md"
 authors = [{ name = "jorektheglitch", email = "jorektheglitch@yandex.ru" }]
