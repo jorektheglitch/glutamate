@@ -16,6 +16,7 @@ class EXT(Enum):
     JPG = "jpg"
     GIF = "gif"
     WEBM = "webm"
+    MP4 = "mp4"
     SWF = "swf"
 
 
