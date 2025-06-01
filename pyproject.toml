@@ -30,7 +30,7 @@ dependencies = [
     "aiofiles >= 23.1",
     "aiohttp >= 3.8",
     "aiohttp-socks >= 0.8",
-    "polars >= 0.17",
+    "polars >= 1.17",
     "tqdm >= 4.65",
 ]
 requires-python = ">=3.10"
